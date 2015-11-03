@@ -19,6 +19,11 @@ URxvt*visualBell: true
 URxvt*mapAlert: true
 URxvt*mouseWheelScrollPage: false
 URxvt*background: Black
-URxvt*foreground: White
+URxvt*foreground: Green
 URxvt*colorUL: yellow
 URxvt*underlineColor: yellow
+URxvt*internalBorder: 5
+Urxvt.lineSpace: 0
+
+! Font can be changed here by uncommenting
+! URxvt.font: xft:DejaVu Sans Mono:regular:size=10
