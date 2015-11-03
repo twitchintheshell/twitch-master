@@ -19,19 +19,19 @@ Specifically, it is accomplished with a multiprocess system, comprised of 5 func
 * twitch_master: Connects to twitch chat, and processes messages in chat. The real meat of the code base as it stands.
 * qemu: Starts the QEMU process and restarts it if it dies.
 
+
 ## Configuration
 
-Create a file name `config.json`:
+Create a file with name `config.json` in the root directory of the source code and content-structure as the following:
 
 ```
 {
-    "nick": "mytwitchinstall",
-    "password": "test"
+    "nick": "my_twitch_username",
+    "password": "oauth:6vgm8nZzzZ1337mine"
 }
 ```
 
-* "nick": Your twitch username.
-* "password": Your twitch oauth token (password).
+Then you can launch the files `qemu.js`, `client_console.js`, `client_status.js` and `twitch_master.js`.
 
 
 ## Contribution
