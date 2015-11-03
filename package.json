@@ -1,0 +1,27 @@
+{
+	"name": "twitch-master",
+	"description": "Read input from Twitch and send keys to other programs.",
+	"version": "0.0.3",
+	"author": "twitchintheshell",
+	"license": "GNU GPL v3",
+	"homepage": "http://twitchintheshell.com/",
+	"main": "twitch_master.js",
+
+	"scripts": {
+	  	"test": "echo \"Error: no test specified.\" && exit 1"
+	},
+
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/twitchintheshell/twitch-master.git"
+	},
+
+	"bugs": {
+	  "url": "https://github.com/twitchintheshell/twitch-master/issues"
+	},
+
+	"dependencies": {
+	  "irc": "^0.4.0",
+	  "zmq": "^2.13.0"
+	}
+}
