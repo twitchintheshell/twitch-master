@@ -304,8 +304,6 @@ function main()
 	});
 
 	twitch_chat.addListener('message#' + config['nick'], function(from, msg) {
-		msg = msg.trim();
-  
 		if (exports.map[msg] != null) {
 			console.log(from + ': ' + msg + ' -> ' + exports.map[msg]);
 			pub.send(['client-console', '> ' + from + ': ' + msg]);
