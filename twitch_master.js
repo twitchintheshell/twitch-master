@@ -216,7 +216,7 @@ function processCommand()
 				// send
 				var command_qemu = exports.map[voting_command].replace(/^VOTE /, '');
 				console.log('Sending to qemu: ' + command_qemu);
-				pub.send(['qemu-master', command_qemu]);
+				pub.send(['qemu-manager', command_qemu]);
 			} else {
 				reportStatus('Vote failed: ' + voting_command, true);
 			}
@@ -233,7 +233,7 @@ function processCommand()
 		} else if (exports.map[selected_command] != "") {
 			// normal command
 			console.log('Sending to qemu: ' + exports.map[selected_command]);
-			pub.send(['qemu-master', exports.map[selected_command]]);
+			pub.send(['qemu-manager', exports.map[selected_command]]);
 		}
 	} else {
 		//reportStatus('Not enough votes.', true);
