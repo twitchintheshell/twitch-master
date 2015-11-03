@@ -19,6 +19,20 @@ Specifically, it is accomplished with a multiprocess system, comprised of 5 func
 * twitch_master: Connects to twitch chat, and processes messages in chat. The real meat of the code base as it stands.
 * qemu: Starts the QEMU process and restarts it if it dies.
 
+## Configuration
+
+Create a file name `config.json`:
+
+```
+{
+    "nick": "mytwitchinstall",
+    "password": "test"
+}
+```
+
+* nick: your twitch nick
+* password: your twitch password
+
 
 ## Contribution
 
