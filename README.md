@@ -30,8 +30,8 @@ Create a file name `config.json`:
 }
 ```
 
-* nick: your twitch nick
-* password: your twitch password
+* "nick": Your twitch username.
+* "password": Your twitch oauth token (password).
 
 
 ## Contribution
