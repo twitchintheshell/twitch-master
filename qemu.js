@@ -40,6 +40,7 @@ sub.on('message', function() {
 
 	process.stdout.write('> ' + msg);
 	child.stdin.write(msg);
+	child.stdin.write("\n");
 });
 
 
