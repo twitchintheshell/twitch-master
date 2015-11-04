@@ -33,6 +33,13 @@ Create a file with name `config.json` in the root directory of the source code a
 
 Then you can launch the files `qemu.js`, `client_console.js`, `client_status.js` and `twitch_master.js`.
 
+If you're running this on a Mac, npm will not be able to install zmq without first running:
+
+`brew install pkg-config icu4c`
+
+then:
+
+`brew link icu4c --force`
 
 ## Contribution
 
