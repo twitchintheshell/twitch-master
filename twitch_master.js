@@ -184,27 +184,41 @@ function democracy_related()
 /* anarchy mode! */
 function anarchy()
 {
-	var rand_int = randomInt(0, 7331),
-		i = 0,
-		winner,
-		winner_user;
+	if (Object.keys(last_tally).length === 0)
+		return null;
 
-	/* teh roulette */
-	while (i != rand_int) {
-		for (var user in last_tally) {
-			++i;
-			winner_user = user;
-			winner = last_tally[user];
+	var users = [],
+		commands = [];
 
-			if (i == rand_int)
-				break;
-		}
+	/* yes we actually need to do this */
+	for (var user in last_tally) {
+		users.push(user);
+		commands.push(last_tally[user]);
 	}
 
-	reportStatus('Winning command [' + winner_user + ']: ' + winner, true);
-	last_tally = {};
 
-	return winner;
+	var i, j, usr_tmp, cmd_tmp;
+
+	/* http://en.wikipedia.org/wiki/Fisher-Yates_shuffle#The_modern_algorithm */
+	for (i = users.length -1; i > 0; i--) {
+		j = Math.floor(Math.random() * (i + 1));
+
+		usr_tmp = users[i];
+		cmd_tmp = commands[i];
+
+		users[i] = users[j];
+		commands[i] = commands[j];
+
+		users[j] = usr_tmp;
+		commands[j] = cmd_tmp; 
+	}
+
+	reportStatus('Winning command [' + users[0] + ']: ' + commands[0], true);
+
+	last_tally = {};
+	last_exec_cmd = commands[0];
+
+	return commands[0];
 }
 
 
@@ -262,7 +276,6 @@ function processCommand()
 			reportStatus('Voting on command (yes to run, nop not to run): ' + selected_command, true);
 
 			voting_command = selected_command;
-			//last_tally = {}; // in case we are in anarchy
       
 		} else if (exports.map[selected_command] != "") {
 			// normal command
