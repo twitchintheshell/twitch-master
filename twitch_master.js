@@ -16,7 +16,11 @@ var fs  = require('fs'),
 
 /* settings */
 var command_interval = 15,
-	command_mode = 'demorchy'; // possible values: anarchy, democracy, demorchy
+	command_mode = 'anarchy', // possible values: anarchy, democracy, demorchy
+	perc_req =  {
+		"system_reset": 80,
+		"ctrl-c": 60
+	}; // ^ sets the required percentages to be fulfilled for yes
 
 /* utility */
 var twitch_chat = new irc.Client('irc.twitch.tv', config['nick'], {
@@ -28,7 +32,7 @@ var twitch_chat = new irc.Client('irc.twitch.tv', config['nick'], {
 
 /* misc */
 var voting_command = null,
-	last_command,
+	last_exec_cmd,
 	last_tally = {}; // keeps users with their responses
 
 
@@ -73,6 +77,28 @@ exports.map_load = function()
 }
 
 
+/*
+ * see http://stackoverflow.com/a/13794386
+ * modified appropriately to return the array's index
+ */
+function max_int_val_array(array)
+{
+	var current = -Infinity,
+		i = 0,
+		length = array.length,
+		result;
+
+	for (; i != length; ++i) {
+		if (array[i] > current) {
+			current = array[i];
+			result = i;
+		}
+	}
+
+	return result;
+}
+
+
 /* demorchy and democracy modes */
 function democracy_related()
 {
@@ -81,8 +107,8 @@ function democracy_related()
 	if (command_mode == 'demorchy') {
 		/* tampering the total messages array (command_count) before it undergoes analysis */
 		var demorchy_pool = Math.round(Object.keys(last_tally).length/3),
-		users_voted = [],
-		rand_int;
+			users_voted = [],
+			rand_int;
 
 		while (users_voted.length < demorchy_pool) {
 			for (var user in last_tally) {
@@ -107,77 +133,85 @@ function democracy_related()
 	}
 
 
-	var top_array = [],
-		top_count = 0,
-		second_array = [],
-		second_count = 0;
+	if (Object.keys(command_count).length === 0)
+		return null;
+
+	var counts = '',
+		percentage,
+		percentages = [],
+		commands = [];
 
 	for (var command in command_count) {
-		if (command_count[command] > top_count) {
-			second_array = top_array.slice();
-			second_count = top_count;
-			top_array = [];
-			top_array.push(command);
-			top_count = command_count[command];
-		} else if (command_count[command] == top_count) {
-			top_array.push(command);
-		} else if (command_count[command] > second_count) {
-			second_array = [];
-			second_array.push(command);
-			second_count = command_count[command]
-		} else if (command_count[command] == second_count) {
-			second_array.push(command);
+		percentage = Math.round(command_count[command]/Object.keys(last_tally).length * 100, 2);
+
+		percentages.push(percentage);
+		commands.push(command);
+
+		counts += '\'' + command + '\' = ' + percentage + '%, ';
+	}
+
+
+	var winner_index = max_int_val_array(percentages),
+		winner = commands[winner_index];
+
+	if (winner === 'yes') {
+		for (var cmd in perc_req) {
+			if (last_exec_cmd === cmd) {
+				if (percentages[winner_index] < parseInt(perc_req[cmd])) {
+					reportStatus('Not enough percentage for yes (needs at least '
+						+ perc_req[cmd] + ').', true);
+					reportStatus('VOTES: ' + counts, true);
+					winner = null;
+				}
+
+				break;
+			}
 		}
 	}
 
-	var counts = '',
-		commands = top_array.concat(second_array);
-
-	for (var index in commands) {
-		var command = commands[index];
-
-		counts += '\'' + command + '\' = ' +
-			Math.round(command_count[command]/Object.keys(last_tally).length * 100, 2) + '%';
-
-		if (index != Object.keys(commands).length - 1)
-			counts += ', '
-	}
-
-	// clear out tally info for next time
-	last_tally = {};
-
-	if (top_array.length > 0) {
-		var selected_command = top_array[Math.floor(Math.random()*top_array.length)];
-
-		reportStatus('Winning command: ' + selected_command, true);
+	if (winner) {
+		reportStatus('Winning command: ' + winner, true);
 		reportStatus('VOTES: ' + counts, true);
-
-		return selected_command;
 	}
+
+	last_tally = {};
+	last_exec_cmd = winner;
+
+	return winner;
 }
 
 
 /* anarchy mode! */
 function anarchy()
 {
-	if (last_command) {
-		var selected_command = last_command;
-		last_command = null;
+	var rand_int = randomInt(0, 7331),
+		i = 0,
+		winner,
+		winner_user;
 
-	// The second parameter in the following reportStatus function determines 
-	// If the command will be reported in the chat stream or not
+	/* teh roulette */
+	while (i != rand_int) {
+		for (var user in last_tally) {
+			++i;
+			winner_user = user;
+			winner = last_tally[user];
 
-		reportStatus('Winning command: ' + selected_command, true);
-
-		return selected_command;
+			if (i == rand_int)
+				break;
+		}
 	}
+
+	reportStatus('Winning command [' + winner_user + ']: ' + winner, true);
+	last_tally = {};
+
+	return winner;
 }
 
 
 /* recursive command processing backbone */
 function processCommand()
 {
-	command_interval = randomInt(5,8);
+	command_interval = randomInt(8,20);
 	var next_ms = command_interval * 1000;
 
 	if (command_mode == 'anarchy' && !voting_command) {
@@ -228,15 +262,15 @@ function processCommand()
 			reportStatus('Voting on command (yes to run, nop not to run): ' + selected_command, true);
 
 			voting_command = selected_command;
-			last_tally = {}; // in case we are in anarchy
+			//last_tally = {}; // in case we are in anarchy
       
 		} else if (exports.map[selected_command] != "") {
 			// normal command
 			console.log('Sending to qemu: ' + exports.map[selected_command]);
 			pub.send(['qemu-manager', exports.map[selected_command]]);
 		}
-	} else {
-		//reportStatus('Not enough votes.', true);
+	} else if (last_exec_cmd != 'yes' && last_exec_cmd != 'nop') {
+		reportStatus('Not enough votes.', true);
 	}
 }
 
@@ -265,7 +299,6 @@ function main()
 
 		case 'anarchy':
 			command_mode = 'anarchy';
-			last_command = null;
 			reportStatus('ANARCHY is now in effect!', true);
 			break;
 		case 'democracy':
@@ -309,7 +342,6 @@ function main()
 			pub.send(['client-console', '> ' + from + ': ' + msg]);
 
 			last_tally[from.trim()] = msg;
-			last_command = msg;
 		}
 	});
 
