@@ -37,13 +37,16 @@ If you're running this on a Mac, npm will not be able to install zmq without fir
 
 `brew install pkg-config icu4c`
 
-then:
+and then:
 
 `brew link icu4c --force`
 
+
 ## Contribution
 
-Please open a pull request as/when you see fit. We will review it and then act accordingly. Also, try to stick to the coding style you see.
+Please open a pull request as/when you see fit. We will review it and then act accordingly.
+*If you want to contribute many lines of code at once*, and more importantly, if they are addressing *crucial parts of the code* such as *input parsing* please open up an issue first for discussion. Do not proceed into writing what you got in mind because it might get turned down.
+Also, stick to the coding style you see.
 
 
 ## License

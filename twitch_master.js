@@ -17,10 +17,15 @@ var fs  = require('fs'),
 /* settings */
 var command_interval = 15,
 	command_mode = 'anarchy', // possible values: anarchy, democracy, demorchy
+	bl_load_cd = 23000, // blacklist load cooldown (ms)
 	perc_req =  {
 		"system_reset": 80,
 		"ctrl-c": 60
-	}; // ^ sets the required percentages to be fulfilled for yes
+	}, // ^ sets the required percentages to be fulfilled for yes
+	mouse_range = {
+		"min": -3000,
+		"max":  3000
+	}; // ^ so no undefined qemu behaviour occurs, e.g. integer overflow
 
 /* utility */
 var twitch_chat = new irc.Client('irc.twitch.tv', config['nick'], {
@@ -32,6 +37,10 @@ var twitch_chat = new irc.Client('irc.twitch.tv', config['nick'], {
 
 /* misc */
 var voting_command = null,
+	mouse_vote = null,
+	mouse_x = 0,
+	mouse_y = 0,
+	mouse_z = 0,
 	last_exec_cmd,
 	last_tally = {}; // keeps users with their responses
 
@@ -41,6 +50,13 @@ var voting_command = null,
  * ============= functions ===============
  * =======================================
  */
+
+/* loads the blacklist */
+function load_blacklist()
+{
+        blacklist = JSON.parse(fs.readFileSync('./blacklist.json', 'utf8'));
+}
+
 
 /* simply returns an integer according to low~high range */
 function randomInt (low, high)
@@ -66,7 +82,7 @@ exports.map_load = function()
 {
 	fs.exists('map.json', function() {
 		try {
-			var map_new = require('./map.json');
+			var map_new = JSON.parse(fs.readFileSync('./map.json', 'utf8'));
 			exports.map = map_new;
 			console.log('(Re)loaded map.json');
 		} catch (ex) {
@@ -157,7 +173,7 @@ function democracy_related()
 	if (winner === 'yes') {
 		for (var cmd in perc_req) {
 			if (last_exec_cmd === cmd) {
-				if (percentages[winner_index] < parseInt(perc_req[cmd])) {
+				if (percentages[winner_index] < perc_req[cmd]) {
 					reportStatus('Not enough percentage for yes (needs at least '
 						+ perc_req[cmd] + ').', true);
 					reportStatus('VOTES: ' + counts, true);
@@ -237,9 +253,9 @@ function processCommand()
   
 	var selected_command;
 
-	if (voting_command != null)
+	if (voting_command != null || mouse_vote != null) {
 		selected_command = democracy_related();
-	else {
+	} else {
 		switch (command_mode) {
 		case 'democracy':
 			selected_command = democracy_related();
@@ -261,6 +277,13 @@ function processCommand()
 			if (selected_command == 'yes') {
 				reportStatus('Vote succeeded: ' + voting_command, true);
 
+				// clearing the mouse coords
+				if (last_exec_cmd.indexOf('boot') != -1 || last_exec_cmd == 'system_reset') {
+					mouse_x = 0;
+					mouse_y = 0;
+					mouse_z = 0;
+				}
+
 				// send
 				var command_qemu = exports.map[voting_command].replace(/^VOTE /, '');
 				console.log('Sending to qemu: ' + command_qemu);
@@ -268,22 +291,90 @@ function processCommand()
 			} else {
 				reportStatus('Vote failed: ' + voting_command, true);
 			}
-      
+
 			voting_command = null;
+
+		} else if (mouse_vote != null) {
+			// we are voting for mouse coords
+			if (isNaN(selected_command)) {
+				reportStatus('Invalid vote won [' + selected_command + ']. Vote failed miserably.', true);
+			} else {
+				var qemu_cmd = 'mouse_move ',
+					int_cmd = Math.round(parseInt(selected_command));
+
+				switch (mouse_vote) {
+				case 'x':
+					qemu_cmd += int_cmd + ' 0';
+					mouse_x += int_cmd;
+
+					if (mouse_x < mouse_range['min'])
+						mouse_x = mouse_range['min'];
+					else if (mouse_x > mouse_range['max'])
+						mouse_x = mouse_range['max'];
+
+					break;
+				case 'y':
+					qemu_cmd += '0 ' + int_cmd;
+					mouse_y += int_cmd;
+
+					if (mouse_y < mouse_range['min'])
+						mouse_y = mouse_range['min'];
+					else if (mouse_y > mouse_range['max'])
+						mouse_y = mouse_range['max'];
+
+					break;
+				case 'z':
+					qemu_cmd += '0 0 ' + int_cmd;
+					mouse_z += int_cmd;
+
+					if (mouse_z < mouse_range['min'])
+						mouse_z = mouse_range['min'];
+					else if (mouse_z > mouse_range['max'])
+						mouse_z = mouse_range['max'];
+
+					break;
+				default:
+					break;
+				}
+
+				reportStatus('New mouse coordinates: [dx: ' + mouse_x + '], [dy: ' + mouse_y +
+					'], [dz: ' + mouse_z + '].', true);
+
+				console.log('Sending to qemu: ' + qemu_cmd);
+				pub.send(['qemu-manager', qemu_cmd]);
+
+			}
+
+			mouse_vote = null;
 
 		} else if (exports.map[selected_command].indexOf("VOTE") == 0) {
 			// this command requires a vote
 			reportStatus('Voting on command (yes to run, nop not to run): ' + selected_command, true);
 
 			voting_command = selected_command;
-      
+
 		} else if (exports.map[selected_command] != "") {
-			// normal command
-			console.log('Sending to qemu: ' + exports.map[selected_command]);
-			pub.send(['qemu-manager', exports.map[selected_command]]);
+			if (selected_command.indexOf('mouse_move') != -1) {
+				mouse_vote = selected_command[selected_command.length -1];
+
+				reportStatus('Voting to move the mouse [d' + mouse_vote + ']. Integers only.', true);
+			} else {
+				// normal command
+				console.log('Sending to qemu: ' + exports.map[selected_command]);
+				pub.send(['qemu-manager', exports.map[selected_command]]);
+
+				if (selected_command.indexOf('_double') != -1) {
+					console.log('Sending to qemu: ' + exports.map[selected_command]);
+					pub.send(['qemu-manager', exports.map[selected_command]]);
+				}
+
+			}
 		}
 	} else if (last_exec_cmd != 'yes' && last_exec_cmd != 'nop') {
 		reportStatus('Not enough votes.', true);
+
+		mouse_vote     = null;
+		voting_command = null;
 	}
 }
 
@@ -337,7 +428,7 @@ function main()
 			break;
       
 		default:
-			console.log("Sending...", args);
+			console.log('Sending...', args);
 			pub.send(args);
 			break;
 		}
@@ -346,12 +437,25 @@ function main()
 	exports.map_load();
 
 	twitch_chat.connect(0, function() {
-		console.log("Twitch connected!");
+		console.log('Twitch connected!');
 	});
 
 	twitch_chat.addListener('message#' + config['nick'], function(from, msg) {
-		if (exports.map[msg] != null) {
-			console.log(from + ': ' + msg + ' -> ' + exports.map[msg]);
+		var blacklisted = false;
+
+		for (var i in blacklist) {
+			if (from.indexOf(blacklist[i]) != -1) {
+				blacklisted = true;
+				break;
+			}
+		}
+
+		if ((exports.map[msg] != null || mouse_vote) && !blacklisted) {
+			if (mouse_vote)
+				console.log(from + ': ' + msg + ' -> ' + msg);
+			else
+				console.log(from + ': ' + msg + ' -> ' + exports.map[msg]);
+
 			pub.send(['client-console', '> ' + from + ': ' + msg]);
 
 			last_tally[from.trim()] = msg;
@@ -364,4 +468,6 @@ function main()
 
 
 /* fly ye bstrds */
+load_blacklist();
+setInterval(load_blacklist, bl_load_cd);
 main();

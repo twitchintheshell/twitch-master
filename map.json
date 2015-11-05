@@ -324,6 +324,17 @@
 	"ctrl-shift-left": "sendkey ctrl-shift-left",
 	"ctrl-shift-right": "sendkey ctrl-shift-right",
 
+	"mouse_move_x": "mouse_move",
+	"mouse_move_y": "mouse_move",
+	"mouse_move_z": "mouse_move",
+	"mouse_left":   "mouse_button 1",
+	"mouse_middle": "mouse_button 2",
+	"mouse_right":  "mouse_button 4",
+
+	"mouse_left_double":   "mouse_button 1",
+	"mouse_middle_double": "mouse_button 2",
+	"mouse_right_double":  "mouse_button 4",
+
 	"nop": "",
 	"yes": "",
 
@@ -336,6 +347,9 @@
 	"PogChamp":    "sendkey spc",
 	"CorgiDerp":   "sendkey up",
 	"WutFace":     "sendkey backspace",
+
+	"power_on":      "cont",
+	"system_wakeup": "system_wakeup",
 
 	"ctrl-c":       "VOTE sendkey ctrl-c",
 	"system_reset": "VOTE system_reset",
