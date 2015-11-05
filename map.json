@@ -139,7 +139,6 @@
 	"alt-f1": "sendkey alt-f1",
 	"alt-f2": "sendkey alt-f2",
 	"alt-f3": "sendkey alt-f3",
-	"alt-f4": "sendkey alt-f4",
 	"alt-f5": "sendkey alt-f5",
 	"alt-f6": "sendkey alt-f6",
 	"alt-f7": "sendkey alt-f7",
@@ -328,8 +327,19 @@
 	"nop": "",
 	"yes": "",
 
-	"ctrl-c": "VOTE sendkey ctrl-c",
+	"winkey":   "sendkey meta_l",
+	"winkey_r": "sendkey meta_r",
+	"menu":     "sendkey menu",
+
+	"Kappa":       "sendkey ret",
+	"NotLikeThis": "sendkey ctrl-esc",
+	"PogChamp":    "sendkey spc",
+	"CorgiDerp":   "sendkey up",
+	"WutFace":     "sendkey backspace",
+
+	"ctrl-c":       "VOTE sendkey ctrl-c",
 	"system_reset": "VOTE system_reset",
-	"boot_cd": "VOTE boot_set dc",
-	"boot_drive": "VOTE boot_set cd"
+	"boot_cd":      "VOTE boot_set dc",
+	"boot_drive":   "VOTE boot_set cd",
+	"alt-f4":       "VOTE sendkey alt-f4"
 }
