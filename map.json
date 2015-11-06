@@ -188,7 +188,6 @@
 	"ctrl-f8": "sendkey ctrl-f8",
 	"ctrl-f9": "sendkey ctrl-f9",
 	"ctrl-alt-del": "sendkey ctrl-alt-delete",
-	"ctrl-alt-delete": "sendkey ctrl-alt-delete",
 	"ctrl-escape": "sendkey ctrl-esc",
 	"ctrl-enter": "sendkey ctrl-ret",
 	"ctrl-space": "sendkey ctrl-spc",
