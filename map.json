@@ -194,6 +194,8 @@
 	"ctrl-down": "sendkey ctrl-down",
 	"ctrl-left": "sendkey ctrl-left",
 	"ctrl-right": "sendkey ctrl-right",
+	"ctrl-[": "sendkey ctrl-bracket_left",
+	"ctrl-]": "sendkey ctrl-bracket_right",
 	"ctrl-alt-a": "sendkey ctrl-alt-a",
 	"ctrl-alt-b": "sendkey ctrl-alt-b",
 	"ctrl-alt-c": "sendkey ctrl-alt-c",
@@ -347,6 +349,7 @@
 	"PogChamp":    "sendkey spc",
 	"CorgiDerp":   "sendkey up",
 	"WutFace":     "sendkey backspace",
+	"KappaRoss":   "sendkey ctrl-c",
 
 	"power_on":      "cont",
 	"system_wakeup": "system_wakeup",
