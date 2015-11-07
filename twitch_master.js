@@ -52,12 +52,12 @@ var monarch = null,
 	idle_penalty = 10,
 
 	supports = 0,
-	support_value = 40,
-	max_supports = 10,
+	support_value = 20,
+	max_supports = 5,
 
 	rebels = 0,
-	rebel_value = 40,
-	max_rebels = 20; // because uh oh
+	rebel_value = 10,
+	max_rebels = 10; // because uh oh
 
 
 
@@ -281,8 +281,6 @@ function monarchy()
 {
 	var users = [],
 		commands = [],
-		rebelism = 0,
-		sheep = 0,
 		users_length = 1;
 
 	/* yes we actually need to do this */
@@ -298,13 +296,15 @@ function monarchy()
 		for (var i in commands) {
 			switch (commands[i]) {
 			case 'rebel':
-				rebelism += 1;
+				if (rebels < max_rebels)
+					influence -= rebel_value;
 				rebels += 1;
 				break;
 			case 'support':
 				if (users[i] != monarch) {
+					if (supports < max_supports)
+						influence += support_value;
 					supports += 1;
-					sheep += 1;
 				}
 				break;
 			default:
@@ -312,25 +312,12 @@ function monarchy()
 			}
 		}
 
-		if (supports < max_supports)
-			influence += support_value - supports;
-		if (rebels < max_rebels)
-			influence -= rebel_value - rebels;
 
 		if (influence <= 0) {
-			reportStatus('[' + monarch + '] has been overthrown. Electing a new monarch..', true);
-
-			monarch = elect_monarch(users);
-			influence = 100;
-			rebels = 0;
-			supports = 0;
-
-			last_tally = {};
-
-			return ((monarch == 'MONARCH_NENOUGH') ? monarch : 'MONARCH_NEW');
+			return 'MONARCH_REELECTION';
 		} else {
 			if (last_tally[monarch]) {
-				influence -= 5;
+				influence -= 10;
 				monarch_cmd = last_tally[monarch];
 				idle_penalty = 10;
 				last_tally = {};
@@ -459,6 +446,10 @@ function processCommand()
 				reportStatus('Not enough users to pick a monarch from.', true);
 				monarch = null;
 				break;
+			case 'MONARCH_REELECTION':
+				reportStatus('[' + monarch + '] has been overthrown. Electing a new monarch.. Type [elect_me].', true);
+				monarch = null;
+				break;
 			case 'MONARCH_IDLE':
 				reportStatus('The monarch [' + monarch + '] is idle and thus has suffered a penalty of ' +
 					idle_penalty/2 + '. Current influence: ' + influence, true);
@@ -476,12 +467,12 @@ function processCommand()
 					reportStatus('The monarch [' + monarch + '] has casted [' + monarch_cmd + ']. ' +
 						'Current influence: ' + influence, true);
 
-					console.log('Sending to qemu: ' + monarch_cmd);
-					pub.send(['qemu-manager', monarch_cmd]);
+					console.log('Sending to qemu: ' + exports.map[monarch_cmd]);
+					pub.send(['qemu-manager', exports.map[monarch_cmd]]);
 
 					if (monarch_cmd.indexOf('_double') != -1) {
-						console.log('Sending to qemu: ' + monarch_cmd);
-						pub.send(['qemu-manager', monarch_cmd]);
+						console.log('Sending to qemu: ' + exports.map[monarch_cmd]);
+						pub.send(['qemu-manager', exports.map[monarch_cmd]]);
 					}
 				}
 				break;
