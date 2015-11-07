@@ -499,6 +499,7 @@ function processCommand()
 			break;
 		case 'chaos':
 			selected_command = chaos();
+			break;
 		default:
 			break;
 		}
@@ -616,7 +617,7 @@ function processCommand()
 
 			}
 		}
-	} else if (last_exec_cmd != 'yes' && last_exec_cmd != 'nop' && command_mode != 'chaos') {
+	} else if (last_exec_cmd != 'yes' && last_exec_cmd != 'nop') {
 		reportStatus('Not enough votes.', true);
 
 		mouse_vote     = null;
