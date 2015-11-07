@@ -1,5 +1,5 @@
 # twitch-master
-[![Version](https://img.shields.io/badge/version-0.0.5-green.svg)](VERSION.md)
+[![Version](https://img.shields.io/badge/version-0.0.6-green.svg)](VERSION.md)
 [![License](https://img.shields.io/badge/license-GNU%20GPL%20v3%2B-blue.svg)](LICENSE)
 
 [twitchintheshell.com](http://twitchintheshell.com/) | [@twitchshell](https://twitter.com/twitchshell) | [changelog](VERSION.md)
