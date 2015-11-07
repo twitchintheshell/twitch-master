@@ -1,8 +1,8 @@
 # twitch-master
-## v0.0.5
+[![Version](https://img.shields.io/badge/version-0.0.5-green.svg)](VERSION)
+[![License](https://img.shields.io/badge/license-GNU%20GPL%20v3%2B-blue.svg)](LICENSE)
 
-Official site: [twitchintheshell](http://twitchintheshell.com/)
-Twitter: [@twitchshell](https://twitter.com/twitchshell)
+[twitchintheshell.com](http://twitchintheshell.com/) | [@twitchshell](https://twitter.com/twitchshell)
 
 The code is currently running on our [stream](http://www.twitch.tv/twitchinstallsarchlinux), feel free to drop by and say hi!
 
