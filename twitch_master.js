@@ -573,6 +573,7 @@ function main()
 
 		case 'anarchy':
 			command_mode = 'anarchy';
+			last_tally = {};
 			reportStatus('ANARCHY is now in effect!', true);
 			break;
 		case 'democracy':
@@ -584,6 +585,11 @@ function main()
 			command_mode = 'demorchy';
 			last_tally = {};
 			reportStatus('DEMORCHY is now in effect!', true);
+			break;
+		case 'monarchy':
+			command_mode = 'monarchy';
+			last_tally = {};
+			reportStatus('MONARCHY is now in effect!', true);
 			break;
 
 		case 'set_interval':
