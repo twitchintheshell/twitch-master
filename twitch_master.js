@@ -16,8 +16,7 @@ var fs  = require('fs'),
 
 /* settings */
 var command_interval = 15,
-	command_mode = 'monarchy', // possible values: anarchy, democracy,
-	                          //                  demorchy, monarchy
+	command_mode = 'chaos', // possible values: anarchy, democracy, demorchy, monarchy, chaos
 	bl_load_cd = 23000, // blacklist load cooldown (ms)
 	perc_req =  {
 		"system_reset": 80,
@@ -180,7 +179,7 @@ function democracy_related()
 
 		counts += '\'' + command + '\' = ' + percentage + '%, ';
 	}
-
+	counts = counts.substring(0, counts.length - 2);
 
 	var winner_index = max_int_val_array(percentages),
 		winner = commands[winner_index];
@@ -344,6 +343,48 @@ function monarchy()
 }
 
 
+/* chaos mode */
+function chaos()
+{
+	var last_8_execs = [];
+
+	for (var user in last_tally) {
+		if (exports.map[last_tally[user]].indexOf("VOTE") == 0) {
+			reportStatus('Voting on command (yes to run, nop not to run): ' + last_tally[user], true);
+			voting_command = last_tally[user];
+			return 'CHAOS_VOTING';
+		}
+
+		console.log('Sending to qemu: ' + exports.map[last_tally[user]]);
+		pub.send(['qemu-manager', exports.map[last_tally[user]]]);
+
+		if (last_tally[user].indexOf('_double') != -1) {
+			console.log('Sending to qemu: ' + exports.map[last_tally[user]]);
+			pub.send(['qemu-manager', exports.map[last_tally[user]]]);
+		}
+
+		last_8_execs.push(last_tally[user]);
+
+		if (last_8_execs.length == 8) {
+			var out = '[';
+
+			last_8_execs.forEach(function(exec) {
+				out += exec + ',';
+			});
+
+			out = out.substring(0, out.length - 1) + ']';
+			last_8_execs = [];
+
+			reportStatus('Run for your lives. Last 8 executed commands: ' + out, true);
+		}
+	}
+
+	last_tally = {};
+
+	return null;
+}
+
+
 /* attempts to move the mouse if the command is correct */
 function mouse_movement(command)
 {
@@ -400,6 +441,31 @@ function mouse_movement(command)
 }
 
 
+/* handles voting command result */
+function voting_cmd_handle(selected_command)
+{
+	if (selected_command == 'yes') {
+		reportStatus('Vote succeeded: ' + voting_command, true);
+
+		// clearing the mouse coords
+		if (last_exec_cmd.indexOf('boot') != -1 || last_exec_cmd == 'system_reset') {
+			mouse_x = 0;
+			mouse_y = 0;
+			mouse_z = 0;
+		}
+
+		// send
+		var command_qemu = exports.map[voting_command].replace(/^VOTE /, '');
+		console.log('Sending to qemu: ' + command_qemu);
+		pub.send(['qemu-manager', command_qemu]);
+	} else {
+		reportStatus('Vote failed: ' + voting_command, true);
+	}
+
+	voting_command = null;
+}
+
+
 /* recursive command processing backbone */
 function processCommand()
 {
@@ -431,13 +497,50 @@ function processCommand()
 		case 'monarchy':
 			selected_command = monarchy();
 			break;
+		case 'chaos':
+			selected_command = chaos();
 		default:
 			break;
 		}
 	}
 
 
-	if (monarch && selected_command) {
+	if (command_mode == 'chaos') {
+		if (voting_command != null) {
+			if (selected_command != 'CHAOS_VOTING')
+				voting_cmd_handle(selected_command);
+		} else {
+			var rand_int = randomInt(0,6);
+
+			switch (rand_int) {
+			case 0:
+				reportStatus('Should I be afraid of you guys?', true);
+				break;
+			case 1:
+				reportStatus('I will survive this.', true);
+				break;
+			case 2:
+				reportStatus('The people who have really made history are the martyrs.', true);
+				break;
+			case 3:
+				reportStatus('Ordinary morality is only for ordinary people.', true);
+				break;
+			case 4:
+				reportStatus('Intolerance is evidence of impotence.', true);
+				break;
+			case 5:
+				reportStatus('I can imagine myself on my death-bed, spent utterly with lust to touch the next world,' +
+					' like a boy asking for his first kiss from a woman.', true);
+				break;
+			case 6:
+				reportStatus('Science is always discovering odd scraps of magical wisdom and making a tremendous fuss' +
+					' about its cleverness.', true);
+				break;
+			default:
+				break;
+			}
+		}
+	} else if (monarch && selected_command) {
 		if (mouse_vote != null) {
 			mouse_movement(selected_command);
 		} else {
@@ -483,26 +586,8 @@ function processCommand()
 		}
 	} else if (selected_command) {
 		if (voting_command != null) {
-			// we were voting to run a dangerous command
-			if (selected_command == 'yes') {
-				reportStatus('Vote succeeded: ' + voting_command, true);
-
-				// clearing the mouse coords
-				if (last_exec_cmd.indexOf('boot') != -1 || last_exec_cmd == 'system_reset') {
-					mouse_x = 0;
-					mouse_y = 0;
-					mouse_z = 0;
-				}
-
-				// send
-				var command_qemu = exports.map[voting_command].replace(/^VOTE /, '');
-				console.log('Sending to qemu: ' + command_qemu);
-				pub.send(['qemu-manager', command_qemu]);
-			} else {
-				reportStatus('Vote failed: ' + voting_command, true);
-			}
-
-			voting_command = null;
+			// important command
+			voting_cmd_handle(selected_command);
 
 		} else if (mouse_vote != null) {
 			// we were voting for mouse coords
@@ -531,7 +616,7 @@ function processCommand()
 
 			}
 		}
-	} else if (last_exec_cmd != 'yes' && last_exec_cmd != 'nop') {
+	} else if (last_exec_cmd != 'yes' && last_exec_cmd != 'nop' && command_mode != 'chaos') {
 		reportStatus('Not enough votes.', true);
 
 		mouse_vote     = null;
@@ -562,6 +647,7 @@ function main()
 			voting_command = null;
 			break;
 
+
 		case 'anarchy':
 			command_mode = 'anarchy';
 			last_tally = {};
@@ -582,6 +668,12 @@ function main()
 			last_tally = {};
 			reportStatus('MONARCHY is now in effect!', true);
 			break;
+		case 'chaos':
+			command_mode = 'chaos';
+			last_tally = {};
+			reportStatus('CHAOS. RUN.', true);
+			break;
+
 
 		case 'set_interval':
 			var new_interval = +args[1];
@@ -617,15 +709,21 @@ function main()
 			}
 		}
 
-		if ((exports.map[msg] != null || mouse_vote) && !blacklisted) {
-			if (mouse_vote)
-				console.log(from + ': ' + msg + ' -> ' + msg);
-			else
+		if (!blacklisted) {
+			if (mouse_vote) {
+				if (!isNaN(command)) {
+					console.log(from + ': ' + msg + ' -> ' + msg);
+					pub.send(['client-console', '> ' + from + ': ' + msg]);
+
+					last_tally[from.trim()] = msg;
+				}
+			} else if (exports.map[msg] != null) {
 				console.log(from + ': ' + msg + ' -> ' + exports.map[msg]);
+				pub.send(['client-console', '> ' + from + ': ' + msg]);
 
-			pub.send(['client-console', '> ' + from + ': ' + msg]);
+				last_tally[from.trim()] = msg;
+			}
 
-			last_tally[from.trim()] = msg;
 		}
 	});
 

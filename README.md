@@ -1,8 +1,8 @@
 # twitch-master
-[![Version](https://img.shields.io/badge/version-0.0.5-green.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-0.0.5-green.svg)](VERSION.md)
 [![License](https://img.shields.io/badge/license-GNU%20GPL%20v3%2B-blue.svg)](LICENSE)
 
-[twitchintheshell.com](http://twitchintheshell.com/) | [@twitchshell](https://twitter.com/twitchshell)
+[twitchintheshell.com](http://twitchintheshell.com/) | [@twitchshell](https://twitter.com/twitchshell) | [changelog](VERSION.md)
 
 The code is currently running on our [stream](http://www.twitch.tv/twitchinstallsarchlinux), feel free to drop by and say hi!
 
@@ -32,7 +32,7 @@ Create a file with name `config.json` in the root directory of the source code a
 }
 ```
 
-Then you can launch the files `qemu.js`, `client_console.js`, `client_status.js` and `twitch_master.js`.
+Then you can launch the files [qemu.js](qemu.js), [client_console.js](client_console.js), [client_status.js](client_status.js) and [twitch_master.js](twitch_master.js).
 
 If you're running this on a Mac, npm will not be able to install zmq without first running:
 
