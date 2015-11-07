@@ -1,4 +1,5 @@
 # twitch-master
+## v0.0.5
 
 Official site: [twitchintheshell](http://twitchintheshell.com/)
 Twitter: [@twitchshell](https://twitter.com/twitchshell)
@@ -45,7 +46,7 @@ and then:
 ## Contribution
 
 Please open a pull request as/when you see fit. We will review it and then act accordingly.
-*If you want to contribute many lines of code at once*, and more importantly, if they are addressing *crucial parts of the code* such as *input parsing* please open up an issue first for discussion. Do not proceed into writing what you got in mind because it might get turned down.
+**If you want to contribute many lines of code at once**, and more importantly, if they are addressing **crucial parts of the code** such as **input parsing** please open up an issue first for discussion. Do not proceed into writing what you got in mind because it might get turned down.
 Also, stick to the coding style you see.
 
 

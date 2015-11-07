@@ -340,6 +340,10 @@
 	"nop": "",
 	"yes": "",
 
+	"elect_me": "",
+	"rebel":    "",
+	"support":  "",
+
 	"winkey":   "sendkey meta_l",
 	"winkey_r": "sendkey meta_r",
 	"menu":     "sendkey menu",

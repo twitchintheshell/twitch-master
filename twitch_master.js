@@ -16,7 +16,8 @@ var fs  = require('fs'),
 
 /* settings */
 var command_interval = 15,
-	command_mode = 'anarchy', // possible values: anarchy, democracy, demorchy
+	command_mode = 'monarchy', // possible values: anarchy, democracy,
+	                          //                  demorchy, monarchy
 	bl_load_cd = 23000, // blacklist load cooldown (ms)
 	perc_req =  {
 		"system_reset": 80,
@@ -43,6 +44,20 @@ var voting_command = null,
 	mouse_z = 0,
 	last_exec_cmd,
 	last_tally = {}; // keeps users with their responses
+
+/* game related stuff */
+var monarch = null,
+	monarch_cmd = null,
+	influence = 100,
+	idle_penalty = 10,
+
+	supports = 0,
+	support_value = 40,
+	max_supports = 10,
+
+	rebels = 0,
+	rebel_value = 40,
+	max_rebels = 20; // because uh oh
 
 
 
@@ -238,6 +253,166 @@ function anarchy()
 }
 
 
+/* elects a monarch given a user array */
+function elect_monarch(users)
+{
+	if (users.length == 0)
+		return 'MONARCH_NENOUGH';
+
+	if (users.length == 1)
+		return users[0];
+
+	var i, j, usr_tmp;
+
+	for (i = users.length -1; i > 0; i--) {
+		j = Math.floor(Math.random() * (i + 1));
+
+		usr_tmp = users[i];
+		users[i] = users[j];
+		users[j] = usr_tmp; 
+	}
+
+	return users[0];
+}
+
+
+/* fascist mode */
+function monarchy()
+{
+	var users = [],
+		commands = [],
+		rebelism = 0,
+		sheep = 0,
+		users_length = 1;
+
+	/* yes we actually need to do this */
+	for (var user in last_tally) {
+		users.push(user);
+		commands.push(last_tally[user]);
+	}
+
+	if (users.length != 0)
+		users_length = users.length;
+
+	if (monarch != null) {
+		for (var i in commands) {
+			switch (commands[i]) {
+			case 'rebel':
+				rebelism += 1;
+				rebels += 1;
+				break;
+			case 'support':
+				if (users[i] != monarch) {
+					supports += 1;
+					sheep += 1;
+				}
+				break;
+			default:
+				break;
+			}
+		}
+
+		if (supports < max_supports)
+			influence += support_value - supports;
+		if (rebels < max_rebels)
+			influence -= rebel_value - rebels;
+
+		if (influence <= 0) {
+			reportStatus('[' + monarch + '] has been overthrown. Electing a new monarch..', true);
+
+			monarch = elect_monarch(users);
+			influence = 100;
+			rebels = 0;
+			supports = 0;
+
+			last_tally = {};
+
+			return ((monarch == 'MONARCH_NENOUGH') ? monarch : 'MONARCH_NEW');
+		} else {
+			if (last_tally[monarch]) {
+				influence -= 5;
+				monarch_cmd = last_tally[monarch];
+				idle_penalty = 10;
+				last_tally = {};
+
+				return 'MONARCH_CMD';
+			}
+
+			influence -= idle_penalty;
+			idle_penalty = idle_penalty * 2;
+			last_tally = {};
+
+			return 'MONARCH_IDLE';
+		}
+	} else {
+		monarch = elect_monarch(users);
+		influence = 100;
+		rebels = 0;
+		supports = 0;
+		idle_penalty = 10;
+		last_tally = {};
+
+		return ((monarch == 'MONARCH_NENOUGH') ? monarch : 'MONARCH_NEW');
+	}
+}
+
+
+/* attempts to move the mouse if the command is correct */
+function mouse_movement(command)
+{
+	if (isNaN(command)) {
+		reportStatus('Invalid issued command [' + command + '] for mouse movement.', true);
+	} else {
+		var qemu_cmd = 'mouse_move ',
+			int_cmd = Math.round(parseInt(command));
+
+		switch (mouse_vote) {
+		case 'x':
+			qemu_cmd += int_cmd + ' 0';
+			mouse_x += int_cmd;
+
+			if (mouse_x < mouse_range['min'])
+				mouse_x = mouse_range['min'];
+			else if (mouse_x > mouse_range['max'])
+				mouse_x = mouse_range['max'];
+
+			break;
+		case 'y':
+			qemu_cmd += '0 ' + int_cmd;
+			mouse_y += int_cmd;
+
+			if (mouse_y < mouse_range['min'])
+				mouse_y = mouse_range['min'];
+			else if (mouse_y > mouse_range['max'])
+				mouse_y = mouse_range['max'];
+
+			break;
+		case 'z':
+			qemu_cmd += '0 0 ' + int_cmd;
+			mouse_z += int_cmd;
+
+			if (mouse_z < mouse_range['min'])
+				mouse_z = mouse_range['min'];
+			else if (mouse_z > mouse_range['max'])
+				mouse_z = mouse_range['max'];
+
+			break;
+		default:
+			break;
+		}
+
+		reportStatus('New mouse coordinates: [dx: ' + mouse_x + '], [dy: ' + mouse_y +
+			'], [dz: ' + mouse_z + '].', true);
+
+		console.log('Sending to qemu: ' + qemu_cmd);
+		pub.send(['qemu-manager', qemu_cmd]);
+
+	}
+
+	mouse_vote = null;
+}
+
+
 /* recursive command processing backbone */
 function processCommand()
 {
@@ -266,14 +441,58 @@ function processCommand()
 		case 'anarchy':
 			selected_command = anarchy();
 			break;
+		case 'monarchy':
+			selected_command = monarchy();
+			break;
 		default:
 			break;
 		}
 	}
 
-	if (selected_command) {
+
+	if (monarch && selected_command) {
+		if (mouse_vote != null) {
+			mouse_movement(selected_command);
+		} else {
+			switch (selected_command) {
+			case 'MONARCH_NENOUGH':
+				reportStatus('Not enough users to pick a monarch from.', true);
+				monarch = null;
+				break;
+			case 'MONARCH_IDLE':
+				reportStatus('The monarch [' + monarch + '] is idle and thus has suffered a penalty of ' +
+					idle_penalty/2 + '. Current influence: ' + influence, true);
+				break;
+			case 'MONARCH_NEW':
+				reportStatus('A new monarch has been elected [' + monarch + ']. Current influence: ' +
+					influence, true);
+				break;
+			case 'MONARCH_CMD':
+				if (selected_command.indexOf('mouse_move') != -1) {
+					mouse_vote = selected_command[selected_command.length -1];
+
+					reportStatus('Monarch wants to move the mouse [d' + mouse_vote + ']. Integers only.', true);
+				} else {
+					reportStatus('The monarch [' + monarch + '] has casted [' + monarch_cmd + ']. ' +
+						'Current influence: ' + influence, true);
+
+					console.log('Sending to qemu: ' + monarch_cmd);
+					pub.send(['qemu-manager', monarch_cmd]);
+
+					if (monarch_cmd.indexOf('_double') != -1) {
+						console.log('Sending to qemu: ' + monarch_cmd);
+						pub.send(['qemu-manager', monarch_cmd]);
+					}
+				}
+				break;
+			default:
+				reportStatus('Something is wrong, and the dev should know this.', true);
+				break;
+			}
+		}
+	} else if (selected_command) {
 		if (voting_command != null) {
-			// we are voting to run a dangerous command
+			// we were voting to run a dangerous command
 			if (selected_command == 'yes') {
 				reportStatus('Vote succeeded: ' + voting_command, true);
 
@@ -295,57 +514,8 @@ function processCommand()
 			voting_command = null;
 
 		} else if (mouse_vote != null) {
-			// we are voting for mouse coords
-			if (isNaN(selected_command)) {
-				reportStatus('Invalid vote won [' + selected_command + ']. Vote failed miserably.', true);
-			} else {
-				var qemu_cmd = 'mouse_move ',
-					int_cmd = Math.round(parseInt(selected_command));
-
-				switch (mouse_vote) {
-				case 'x':
-					qemu_cmd += int_cmd + ' 0';
-					mouse_x += int_cmd;
-
-					if (mouse_x < mouse_range['min'])
-						mouse_x = mouse_range['min'];
-					else if (mouse_x > mouse_range['max'])
-						mouse_x = mouse_range['max'];
-
-					break;
-				case 'y':
-					qemu_cmd += '0 ' + int_cmd;
-					mouse_y += int_cmd;
-
-					if (mouse_y < mouse_range['min'])
-						mouse_y = mouse_range['min'];
-					else if (mouse_y > mouse_range['max'])
-						mouse_y = mouse_range['max'];
-
-					break;
-				case 'z':
-					qemu_cmd += '0 0 ' + int_cmd;
-					mouse_z += int_cmd;
-
-					if (mouse_z < mouse_range['min'])
-						mouse_z = mouse_range['min'];
-					else if (mouse_z > mouse_range['max'])
-						mouse_z = mouse_range['max'];
-
-					break;
-				default:
-					break;
-				}
-
-				reportStatus('New mouse coordinates: [dx: ' + mouse_x + '], [dy: ' + mouse_y +
-					'], [dz: ' + mouse_z + '].', true);
-
-				console.log('Sending to qemu: ' + qemu_cmd);
-				pub.send(['qemu-manager', qemu_cmd]);
-
-			}
-
-			mouse_vote = null;
+			// we were voting for mouse coords
+			mouse_movement(selected_command);
 
 		} else if (exports.map[selected_command].indexOf("VOTE") == 0) {
 			// this command requires a vote
