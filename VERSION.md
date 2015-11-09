@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.8
+* Added a new feature for ops to cast QEMU commands directly.
+  * `/w botnick obey_one system_reset`
+  * `/w botnick obey_all ayylmao`
+  * Note: They can't change_mode or something game-related (yet).
+  * [issue #30](https://github.com/twitchintheshell/twitch-master/issues/30)
+* Scaled the whole code to pass JSHint linting.
+
+
 ## 0.0.7
 * Added a new filter mechanism.
   * If any entry in [filters.json](filters.json) occurs on input, there is a surprise.

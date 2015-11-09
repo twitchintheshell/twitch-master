@@ -15,11 +15,13 @@ var fs  = require('fs'),
 	pub = require('./lib/comm').sender(),
 	config = require('./config.json'),
 
+	ops = require('./ops.json'),
 	blacklist = require('./blacklist.json'),
 	filters = require('./filters.json');
 
 /* settings */
 var command_interval = 15,
+	grp_chan = '#_ektor5_1446326140015',
 	modes = [
 		'anarchy',
 		'democracy',
@@ -39,9 +41,7 @@ var command_interval = 15,
 		'Science is always discovering odd scraps of magical wisdom and making a tremendous fuss about its cleverness.'
 	],
 
-	bl_load_cd = 23000, // blacklist reload cooldown (ms)
-
-	fl_load_cd = 23000, // filters reload cooldown (ms)
+	reload_cd = 23000, // for ops, blacklist and filters
 	max_filter_len = 50,
 
 	perc_req =  {
@@ -50,17 +50,24 @@ var command_interval = 15,
 	}, // ^ sets the required percentages to be fulfilled for yes
 
 	mouse_range = {
-		"min": -3000,
-		"max":  3000
-	}; // ^ so no undefined qemu behaviour occurs, e.g. integer overflow
+		min: -3000,
+		max:  3000
+	}; /* jshint ignore:line */
+	// ^ so no undefined qemu behaviour occurs, e.g. integer overflow
 
 /* utility */
-var twitch_chat = new irc.Client('irc.twitch.tv', config['nick'], {
-	channels: ['#' + config['nick']],
-	userName: config['nick'],
-	password: config['password'],
+var twitch_chat = new irc.Client('irc.twitch.tv', config.nick, {
+	channels: ['#' + config.nick],
+	userName: config.nick,
+	password: config.password,
 	autoConnect: false
-});
+}),
+	twitch_group = new irc.Client('192.16.64.180', config.nick, {
+		channels: [grp_chan],
+		userName: config.nick,
+		password: config.password,
+		autoConnect: false
+	});
 
 /* misc */
 var voting_command = null,
@@ -71,6 +78,7 @@ var voting_command = null,
 	mouse_y = 0,
 	mouse_z = 0,
 	last_exec_cmd = '',
+	str_modes = '',
 	filter = '',
 	last_tally = {}; // keeps users with their responses
 
@@ -109,6 +117,14 @@ function load_filters()
 }
 
 
+/* loads the ops */
+function load_ops()
+{
+        ops = JSON.parse(fs.readFileSync('./ops.json', 'utf8'));
+}
+
+
+
 
 /* simply returns an integer according to low~high range */
 function randomInt (low, high)
@@ -123,7 +139,7 @@ function reportStatus(message, twitch)
 	pub.send(['client-status', message]);
 
 	if (twitch_chat && config && twitch)
-		twitch_chat.say('#' + config['nick'], message);
+		twitch_chat.say('#' + config.nick, message);
 
 	console.log(message);
 }
@@ -144,7 +160,7 @@ function handle_filter(cmd)
 			reportStatus('Someone is a bad boy! Taking counter-measures.', true);
 
 			for (y = 0; y < filters[i].length; y++)
-				pub.send(['qemu-manager', exports.map['backspace']]);
+				pub.send(['qemu-manager', exports.map.backspace]);
 
 			filter = filter.substring(0, filter.length - filters[i].length);
 
@@ -153,7 +169,7 @@ function handle_filter(cmd)
 			for (y = 0; y < kappa.length; y++)
 				pub.send(['qemu-manager', exports.map[kappa[y]]]);
 
-			pub.send(['qemu-manager', exports.map['enter']]);
+			pub.send(['qemu-manager', exports.map.enter]);
 
 			break;
 		}
@@ -174,7 +190,7 @@ exports.map_load = function()
 			console.log(ex);
 		}
 	});
-}
+};
 
 
 /*
@@ -214,8 +230,8 @@ function democracy_related()
 			for (var user in last_tally) {
 				rand_int = crypto.randomBytes(4).readUInt32BE(0);
 
-				if ((rand_int % 2) == 0 && users_voted.indexOf(user) == -1) {
-					if (command_count[last_tally[user]] == null)
+				if ((rand_int % 2) === 0 && users_voted.indexOf(user) == -1) {
+					if (command_count[last_tally[user]] === null)
 						command_count[last_tally[user]] = 0;
 
 					command_count[last_tally[user]] += 1;
@@ -224,11 +240,11 @@ function democracy_related()
 			}
 		}
 	} else {
-		for (var user in last_tally) {
-			if (command_count[last_tally[user]] == null)
-				command_count[last_tally[user]] = 0;
+		for (var usr in last_tally) {
+			if (command_count[last_tally[usr]] === null)
+				command_count[last_tally[usr]] = 0;
 
-			command_count[last_tally[user]] += 1;
+			command_count[last_tally[usr]] += 1;
 		}
 	}
 
@@ -258,8 +274,8 @@ function democracy_related()
 		for (var cmd in perc_req) {
 			if (last_exec_cmd === cmd) {
 				if (percentages[winner_index] < perc_req[cmd]) {
-					reportStatus('Not enough percentage for yes (needs at least '
-						+ perc_req[cmd] + ').', true);
+					reportStatus('Not enough percentage for yes (needs at least '+
+						perc_req[cmd] + ').', true);
 					reportStatus('VOTES: ' + counts, true);
 					winner = null;
 				}
@@ -325,7 +341,7 @@ function anarchy()
 /* elects a monarch given a user array */
 function elect_monarch(users)
 {
-	if (users.length == 0)
+	if (users.length === 0)
 		return 'MONARCH_NENOUGH';
 
 	if (users.length == 1)
@@ -358,10 +374,10 @@ function monarchy()
 		commands.push(last_tally[user]);
 	}
 
-	if (users.length != 0)
+	if (users.length !== 0)
 		users_length = users.length;
 
-	if (monarch != null) {
+	if (monarch !== null) {
 		for (var i in commands) {
 			switch (commands[i]) {
 			case 'rebel':
@@ -420,7 +436,7 @@ function chaos()
 	var last_8_execs = [];
 
 	for (var user in last_tally) {
-		if (exports.map[last_tally[user]].indexOf("VOTE") == 0) {
+		if (exports.map[last_tally[user]].indexOf("VOTE") === 0) {
 			reportStatus('Voting on command (yes to run, nop not to run): ' + last_tally[user], true);
 
 			voting_command = last_tally[user];
@@ -428,11 +444,10 @@ function chaos()
 
 			return 'CHAOS_VOTING';
 		} else if (last_tally[user] == 'change_mode' && mode_can_change) {
-			var str_modes = '[';
+			str_modes = '[';
 
-			modes.forEach(function(mode) {
-				str_modes += mode + ','
-			});
+			for (var i = 0; i < modes.length; i++)
+				str_modes += modes[i] + ',';
 
 			str_modes = str_modes.substring(0, str_modes.length - 1) + ']';
 			reportStatus('Voting to change mode. Available modes: ' + str_modes, true);
@@ -459,9 +474,8 @@ function chaos()
 		if (last_8_execs.length == 8) {
 			var out = '[';
 
-			last_8_execs.forEach(function(exec) {
-				out += exec + ',';
-			});
+			for (var y = 0; y < last_8_execs.length; y++)
+				out += last_8_execs[y] + ',';
 
 			out = out.substring(0, out.length - 1) + ']';
 			last_8_execs = [];
@@ -490,30 +504,30 @@ function mouse_movement(command)
 			qemu_cmd += int_cmd + ' 0';
 			mouse_x += int_cmd;
 
-			if (mouse_x < mouse_range['min'])
-				mouse_x = mouse_range['min'];
-			else if (mouse_x > mouse_range['max'])
-				mouse_x = mouse_range['max'];
+			if (mouse_x < mouse_range.min)
+				mouse_x = mouse_range.min;
+			else if (mouse_x > mouse_range.max)
+				mouse_x = mouse_range.max;
 
 			break;
 		case 'y':
 			qemu_cmd += '0 ' + int_cmd;
 			mouse_y += int_cmd;
 
-			if (mouse_y < mouse_range['min'])
-				mouse_y = mouse_range['min'];
-			else if (mouse_y > mouse_range['max'])
-				mouse_y = mouse_range['max'];
+			if (mouse_y < mouse_range.min)
+				mouse_y = mouse_range.min;
+			else if (mouse_y > mouse_range.max)
+				mouse_y = mouse_range.max;
 
 			break;
 		case 'z':
 			qemu_cmd += '0 0 ' + int_cmd;
 			mouse_z += int_cmd;
 
-			if (mouse_z < mouse_range['min'])
-				mouse_z = mouse_range['min'];
-			else if (mouse_z > mouse_range['max'])
-				mouse_z = mouse_range['max'];
+			if (mouse_z < mouse_range.min)
+				mouse_z = mouse_range.min;
+			else if (mouse_z > mouse_range.max)
+				mouse_z = mouse_range.max;
 
 			break;
 		default:
@@ -589,7 +603,7 @@ function processCommand()
   
 	var selected_command;
 
-	if (voting_command != null || mouse_vote != null || voting_mode != null) {
+	if (voting_command !== null || mouse_vote !== null || voting_mode !== null) {
 		selected_command = democracy_related();
 	} else {
 		switch (command_mode) {
@@ -615,20 +629,20 @@ function processCommand()
 
 
 	if (command_mode == 'chaos') {
-		if (selected_command == null)
+		if (selected_command === null)
 			reportStatus(chaos_quotes[randomInt(0, chaos_quotes.length - 1)], true);
 
 		else if (selected_command != 'CHAOS_VOTING') {
-			if (voting_command != null) {
+			if (voting_command !== null) {
 				voting_cmd_handle(selected_command);
-			} else if (voting_mode != null) {
+			} else if (voting_mode !== null) {
 				voting_mode_handle(selected_command);
 			}
 		}
 	} else if (monarch && selected_command) {
-		if (mouse_vote != null) {
+		if (mouse_vote !== null) {
 			mouse_movement(selected_command);
-		} else if (voting_mode != null) {
+		} else if (voting_mode !== null) {
 			voting_mode_handle(selected_command);
 		} else {
 			switch (selected_command) {
@@ -655,10 +669,10 @@ function processCommand()
 				} else if (monarch_cmd == 'change_mode' && mode_can_change) {
 					voting_mode = 'change_mode';
 
-					var str_modes = '[';
+					str_modes = '[';
 
 					modes.forEach(function(mode) {
-						str_modes += mode + ','
+						str_modes += mode + ',';
 					});
 
 					str_modes = str_modes.substring(0, str_modes.length - 1) + ']';
@@ -684,36 +698,36 @@ function processCommand()
 			}
 		}
 	} else if (selected_command) {
-		if (voting_command != null) {
+		if (voting_command !== null) {
 			// important command
 			voting_cmd_handle(selected_command);
 
-		} else if (mouse_vote != null) {
+		} else if (mouse_vote !== null) {
 			// we were voting for mouse coords
 			mouse_movement(selected_command);
 
-		} else if (voting_mode != null) {
+		} else if (voting_mode !== null) {
 			// we were voting for a new mode
 			voting_mode_handle(selected_command);
 
 		} else if (selected_command == 'change_mode' && mode_can_change) {
 			voting_mode = 'change_mode';
 
-			var str_modes = '[';
+			str_modes = '[';
 
 			modes.forEach(function(mode) {
-				str_modes += mode + ','
+				str_modes += mode + ',';
 			});
 
 			str_modes = str_modes.substring(0, str_modes.length - 1) + ']';
 			reportStatus('Voting to change mode. Available modes: ' + str_modes, true);
 
-		} else if (exports.map[selected_command].indexOf("VOTE") == 0) {
+		} else if (exports.map[selected_command].indexOf("VOTE") === 0) {
 			// this command requires a vote
 			reportStatus('Voting on command (yes to run, nop not to run): ' + selected_command, true);
 			voting_command = selected_command;
 
-		} else if (exports.map[selected_command] != "") {
+		} else if (exports.map[selected_command] !== "") {
 			if (selected_command.indexOf('mouse_move') != -1) {
 				mouse_vote = selected_command[selected_command.length -1];
 
@@ -816,11 +830,49 @@ function main()
 
 	exports.map_load();
 
+	twitch_group.connect(0, function() {
+		console.log('Twitch-group connected!');
+	});
 	twitch_chat.connect(0, function() {
 		console.log('Twitch connected!');
 	});
 
-	twitch_chat.addListener('message#' + config['nick'], function(from, msg) {
+	twitch_group.send('CAP REQ', 'twitch.tv/commands');
+	twitch_group.addListener('raw', function(message) {
+		var valid_op = false;
+
+		for (var i in ops)
+			if (ops[i] === message.nick)
+				valid_op = true;
+
+		if (message.command === 'WHISPER' && valid_op) {
+			if (message.args.length === 2) {
+				var cmd;
+
+				if (message.args[1].indexOf('obey_one') === 0) {
+					cmd = message.args[1].substring(9, message.args[1].length);
+
+					pub.send(['qemu-manager', exports.map[cmd]]);
+
+					twitch_group.say(grp_chan, '/w ' + message.nick + ' You have casted [' +
+						exports.map[cmd] + '] successfully.');
+
+				} else if (message.args[1].indexOf('obey_all') === 0) {
+					cmd = message.args[1].substring(9, message.args[1].length);
+
+					for (var y in cmd)
+						pub.send(['qemu-manager', exports.map[cmd[y]]]);
+
+					twitch_group.say(grp_chan, '/w ' + message.nick + ' You have casted multi [' +
+						cmd + '] successfully.');
+				}
+			}
+		}
+	});
+
+	twitch_chat.addListener('message#' + config.nick, function(from, msg) {
+		console.log(from + ': ' + msg);
+
 		var blacklisted = false;
 
 		for (var i in blacklist) {
@@ -842,13 +894,13 @@ function main()
 				if (msg == 'yes' || msg == 'nop')
 					last_tally[from.trim()] = msg;
 			} else if (voting_mode) {
-				for (var i in modes) {
+				for (var i in modes) { /* jshint ignore:line */
 					if (modes[i] == msg) {
 						last_tally[from.trim()] = msg;
 						break;
 					}
 				}
-			} else if (exports.map[msg] != null) {
+			} else if (exports.map[msg] !== null) {
 				console.log(from + ': ' + msg + ' -> ' + exports.map[msg]);
 				pub.send(['client-console', '> ' + from + ': ' + msg]);
 
@@ -864,6 +916,7 @@ function main()
 
 
 /* fly ye bstrds */
-setInterval(load_blacklist, bl_load_cd);
-setInterval(load_filters, fl_load_cd);
+setInterval(load_blacklist, reload_cd);
+setInterval(load_filters, reload_cd);
+setInterval(load_ops, reload_cd);
 main();
