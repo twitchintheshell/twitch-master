@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.7
+* Added a new filter mechanism.
+  * If any entry in [filters.json](filters.json) occurs on input, there is a surprise.
+  * [issue #28](https://github.com/twitchintheshell/twitch-master/issues/28)
+* Added the command `change_mode`.
+  * Users can vote to change the current play-mode. There is also a `mode_can_change = true` for admins to toggle.
+* Fixed a mouse movement bug. It should work fine now (if it doesn't, it's qemu).
+* Chaos mode structure improvement, specifically the quotes.
+
+
 ## 0.0.6
 * Added a new chaos mode.
   * [issue #26](https://github.com/twitchintheshell/twitch-master/issues/26)

@@ -11,17 +11,44 @@ exports.map = {}; // json command mapping
 var fs  = require('fs'),
 	irc = require('irc'),
 	crypto = require('crypto'),
+
 	pub = require('./lib/comm').sender(),
-	config = require('./config.json');
+	config = require('./config.json'),
+
+	blacklist = require('./blacklist.json'),
+	filters = require('./filters.json');
 
 /* settings */
 var command_interval = 15,
-	command_mode = 'chaos', // possible values: anarchy, democracy, demorchy, monarchy, chaos
-	bl_load_cd = 23000, // blacklist load cooldown (ms)
+	modes = [
+		'anarchy',
+		'democracy',
+		'demorchy',
+		'monarchy',
+		'chaos'
+	],
+	mode_can_change = true,
+	command_mode = 'democracy';
+	chaos_quotes = [
+		'Should I be afraid of you guys?',
+		'I will survive this.',
+		'The people who have really made history are the martyrs.',
+		'Ordinary morality is only for ordinary people.',
+		'Intolerance is evidence of impotence.',
+		'I can imagine myself on my death-bed, spent utterly with lust to touch the next world, like a boy asking for his first kiss from a woman.',
+		'Science is always discovering odd scraps of magical wisdom and making a tremendous fuss about its cleverness.'
+	],
+
+	bl_load_cd = 23000, // blacklist reload cooldown (ms)
+
+	fl_load_cd = 23000, // filters reload cooldown (ms)
+	max_filter_len = 50,
+
 	perc_req =  {
 		"system_reset": 80,
 		"ctrl-c": 60
 	}, // ^ sets the required percentages to be fulfilled for yes
+
 	mouse_range = {
 		"min": -3000,
 		"max":  3000
@@ -37,11 +64,14 @@ var twitch_chat = new irc.Client('irc.twitch.tv', config['nick'], {
 
 /* misc */
 var voting_command = null,
+	kappa = 'twitchintheshell.com/kappa.html',
+	voting_mode = null,
 	mouse_vote = null,
 	mouse_x = 0,
 	mouse_y = 0,
 	mouse_z = 0,
-	last_exec_cmd,
+	last_exec_cmd = '',
+	filter = '',
 	last_tally = {}; // keeps users with their responses
 
 /* game related stuff */
@@ -72,6 +102,14 @@ function load_blacklist()
 }
 
 
+/* loads the filters */
+function load_filters()
+{
+        filters = JSON.parse(fs.readFileSync('./filters.json', 'utf8'));
+}
+
+
+
 /* simply returns an integer according to low~high range */
 function randomInt (low, high)
 {
@@ -88,6 +126,38 @@ function reportStatus(message, twitch)
 		twitch_chat.say('#' + config['nick'], message);
 
 	console.log(message);
+}
+
+
+/* it is supposed to get called before sending a key to qemu*/
+function handle_filter(cmd)
+{
+	filter += cmd;
+
+	if (filter.length > max_filter_len)
+		filter = filter.substring(1, filter.length);
+
+	for (var i in filters) {
+		if (filter.indexOf(filters[i]) != -1) {
+			var y;
+
+			reportStatus('Someone is a bad boy! Taking counter-measures.', true);
+
+			for (y = 0; y < filters[i].length; y++)
+				pub.send(['qemu-manager', exports.map['backspace']]);
+
+			filter = filter.substring(0, filter.length - filters[i].length);
+
+			pub.send(['qemu-manager', exports.map['ctrl-a']]);
+
+			for (y = 0; y < kappa.length; y++)
+				pub.send(['qemu-manager', exports.map[kappa[y]]]);
+
+			pub.send(['qemu-manager', exports.map['enter']]);
+
+			break;
+		}
+	}
 }
 
 
@@ -351,12 +421,32 @@ function chaos()
 	for (var user in last_tally) {
 		if (exports.map[last_tally[user]].indexOf("VOTE") == 0) {
 			reportStatus('Voting on command (yes to run, nop not to run): ' + last_tally[user], true);
+
 			voting_command = last_tally[user];
+			last_tally = {};
+
+			return 'CHAOS_VOTING';
+		} else if (last_tally[user] == 'change_mode' && mode_can_change) {
+			var str_modes = '[';
+
+			modes.forEach(function(mode) {
+				str_modes += mode + ','
+			});
+
+			str_modes = str_modes.substring(0, str_modes.length - 1) + ']';
+			reportStatus('Voting to change mode. Available modes: ' + str_modes, true);
+
+			voting_mode = 'change_mode';
+			last_tally = {};
+
 			return 'CHAOS_VOTING';
 		}
 
+		handle_filter(last_tally[user]);
+		
 		console.log('Sending to qemu: ' + exports.map[last_tally[user]]);
 		pub.send(['qemu-manager', exports.map[last_tally[user]]]);
+
 
 		if (last_tally[user].indexOf('_double') != -1) {
 			console.log('Sending to qemu: ' + exports.map[last_tally[user]]);
@@ -466,6 +556,23 @@ function voting_cmd_handle(selected_command)
 }
 
 
+/* handles voting mode result */
+function voting_mode_handle(selected_command)
+{
+	if (command_mode != selected_command) {
+		command_mode = selected_command;
+		reportStatus('Mode changed successfully to [' + command_mode + '].', true);
+
+		if (command_mode != 'monarchy')
+			monarch = null;
+	} else {
+		reportStatus('It would be pointless to make the mode what it already is. Vote failed.', true);
+	}
+
+	voting_mode = null;
+}
+
+
 /* recursive command processing backbone */
 function processCommand()
 {
@@ -481,7 +588,7 @@ function processCommand()
   
 	var selected_command;
 
-	if (voting_command != null || mouse_vote != null) {
+	if (voting_command != null || mouse_vote != null || voting_mode != null) {
 		selected_command = democracy_related();
 	} else {
 		switch (command_mode) {
@@ -507,43 +614,21 @@ function processCommand()
 
 
 	if (command_mode == 'chaos') {
-		if (voting_command != null) {
-			if (selected_command != 'CHAOS_VOTING')
-				voting_cmd_handle(selected_command);
-		} else {
-			var rand_int = randomInt(0,6);
+		if (selected_command == null)
+			reportStatus(chaos_quotes[randomInt(0, chaos_quotes.length - 1)], true);
 
-			switch (rand_int) {
-			case 0:
-				reportStatus('Should I be afraid of you guys?', true);
-				break;
-			case 1:
-				reportStatus('I will survive this.', true);
-				break;
-			case 2:
-				reportStatus('The people who have really made history are the martyrs.', true);
-				break;
-			case 3:
-				reportStatus('Ordinary morality is only for ordinary people.', true);
-				break;
-			case 4:
-				reportStatus('Intolerance is evidence of impotence.', true);
-				break;
-			case 5:
-				reportStatus('I can imagine myself on my death-bed, spent utterly with lust to touch the next world,' +
-					' like a boy asking for his first kiss from a woman.', true);
-				break;
-			case 6:
-				reportStatus('Science is always discovering odd scraps of magical wisdom and making a tremendous fuss' +
-					' about its cleverness.', true);
-				break;
-			default:
-				break;
+		else if (selected_command != 'CHAOS_VOTING') {
+			if (voting_command != null) {
+				voting_cmd_handle(selected_command);
+			} else if (voting_mode != null) {
+				voting_mode_handle(selected_command);
 			}
 		}
 	} else if (monarch && selected_command) {
 		if (mouse_vote != null) {
 			mouse_movement(selected_command);
+		} else if (voting_mode != null) {
+			voting_mode_handle(selected_command);
 		} else {
 			switch (selected_command) {
 			case 'MONARCH_NENOUGH':
@@ -563,13 +648,25 @@ function processCommand()
 					influence, true);
 				break;
 			case 'MONARCH_CMD':
-				if (selected_command.indexOf('mouse_move') != -1) {
+				if (monarch_cmd.indexOf('mouse_move') != -1) {
 					mouse_vote = selected_command[selected_command.length -1];
-
 					reportStatus('Monarch wants to move the mouse [d' + mouse_vote + ']. Integers only.', true);
+				} else if (monarch_cmd == 'change_mode' && mode_can_change) {
+					voting_mode = 'change_mode';
+
+					var str_modes = '[';
+
+					modes.forEach(function(mode) {
+						str_modes += mode + ','
+					});
+
+					str_modes = str_modes.substring(0, str_modes.length - 1) + ']';
+					reportStatus('Monarch wants to change the mode. Vote for it. Available modes: ' + str_modes, true);
 				} else {
 					reportStatus('The monarch [' + monarch + '] has casted [' + monarch_cmd + ']. ' +
 						'Current influence: ' + influence, true);
+
+					handle_filter(monarch_cmd);
 
 					console.log('Sending to qemu: ' + exports.map[monarch_cmd]);
 					pub.send(['qemu-manager', exports.map[monarch_cmd]]);
@@ -594,10 +691,25 @@ function processCommand()
 			// we were voting for mouse coords
 			mouse_movement(selected_command);
 
+		} else if (voting_mode != null) {
+			// we were voting for a new mode
+			voting_mode_handle(selected_command);
+
+		} else if (selected_command == 'change_mode' && mode_can_change) {
+			voting_mode = 'change_mode';
+
+			var str_modes = '[';
+
+			modes.forEach(function(mode) {
+				str_modes += mode + ','
+			});
+
+			str_modes = str_modes.substring(0, str_modes.length - 1) + ']';
+			reportStatus('Voting to change mode. Available modes: ' + str_modes, true);
+
 		} else if (exports.map[selected_command].indexOf("VOTE") == 0) {
 			// this command requires a vote
 			reportStatus('Voting on command (yes to run, nop not to run): ' + selected_command, true);
-
 			voting_command = selected_command;
 
 		} else if (exports.map[selected_command] != "") {
@@ -607,6 +719,8 @@ function processCommand()
 				reportStatus('Voting to move the mouse [d' + mouse_vote + ']. Integers only.', true);
 			} else {
 				// normal command
+				handle_filter(selected_command);
+
 				console.log('Sending to qemu: ' + exports.map[selected_command]);
 				pub.send(['qemu-manager', exports.map[selected_command]]);
 
@@ -647,7 +761,12 @@ function main()
 			// for when this inevitably breaks
 			voting_command = null;
 			break;
-
+		case 'mode_can_change':
+			mode_can_change = true;
+			break;
+		case 'mode_cant_change':
+			mode_can_change = false;
+			break;
 
 		case 'anarchy':
 			command_mode = 'anarchy';
@@ -712,11 +831,21 @@ function main()
 
 		if (!blacklisted) {
 			if (mouse_vote) {
-				if (!isNaN(command)) {
+				if (!isNaN(msg)) {
 					console.log(from + ': ' + msg + ' -> ' + msg);
 					pub.send(['client-console', '> ' + from + ': ' + msg]);
 
 					last_tally[from.trim()] = msg;
+				}
+			} else if (voting_command) {
+				if (msg == 'yes' || msg == 'nop')
+					last_tally[from.trim()] = msg;
+			} else if (voting_mode) {
+				for (var i in modes) {
+					if (modes[i] == msg) {
+						last_tally[from.trim()] = msg;
+						break;
+					}
 				}
 			} else if (exports.map[msg] != null) {
 				console.log(from + ': ' + msg + ' -> ' + exports.map[msg]);
@@ -734,6 +863,6 @@ function main()
 
 
 /* fly ye bstrds */
-load_blacklist();
 setInterval(load_blacklist, bl_load_cd);
+setInterval(load_filters, fl_load_cd);
 main();

@@ -77,6 +77,7 @@
 	"'": "sendkey apostrophe",
 	"\"": "sendkey shift-apostrophe",
 	"dot": "sendkey dot",
+	".": "sendkey dot",
 	",": "sendkey comma",
 	":": "sendkey shift-semicolon",
 	";": "sendkey semicolon",
@@ -345,6 +346,8 @@
 	"elect_me": "",
 	"rebel":    "",
 	"support":  "",
+
+	"change_mode": "",
 
 	"winkey":   "sendkey meta_l",
 	"winkey_r": "sendkey meta_r",
