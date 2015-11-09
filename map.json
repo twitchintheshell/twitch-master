@@ -96,6 +96,8 @@
 	"}": "sendkey shift-bracket_right",
 	"escape": "sendkey esc",
 	"backspace": "sendkey backspace",
+	"del": "sendkey delete",
+	"delete": "sendkey delete",
 	"enter": "sendkey ret",
 	"space": "sendkey spc",
 	"tab": "sendkey tab",
