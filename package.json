@@ -1,7 +1,7 @@
 {
 	"name": "twitch-master",
 	"description": "Read input from Twitch and send keys to other programs with various ways (game modes).",
-	"version": "0.0.6",
+	"version": "0.0.7",
 	"author": "twitchintheshell",
 	"license": "GNU GPL v3",
 	"homepage": "http://twitchintheshell.com/",
