@@ -575,11 +575,11 @@ function voting_cmd_handle(selected_command)
 function voting_mode_handle(selected_command)
 {
 	if (command_mode != selected_command) {
+		if (command_mode == 'monarchy')
+			monarch = null;
+
 		command_mode = selected_command;
 		reportStatus('Mode changed successfully to [' + command_mode + '].', true);
-
-		if (command_mode != 'monarchy')
-			monarch = null;
 	} else {
 		reportStatus('It would be pointless to make the mode what it already is. Vote failed.', true);
 	}
