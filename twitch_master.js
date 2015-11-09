@@ -383,6 +383,7 @@ function monarchy()
 
 
 		if (influence <= 0) {
+			last_tally = {};
 			return 'MONARCH_REELECTION';
 		} else {
 			if (last_tally[monarch]) {
